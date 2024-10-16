@@ -10,7 +10,7 @@ const History = () => {
       try {
         const token = localStorage.getItem('token'); // Retrieve the token
 
-        const response = await axios.get('hhttps://therapist-backend5.onrender.com/api/history', {
+        const response = await axios.get('https://therapist-backend5.onrender.com/api/history', {
           headers: {
             'Authorization': `Bearer ${token}` // Include the token in the headers
           }
