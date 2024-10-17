@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FiCalendar, FiClock, FiMapPin, FiAlertTriangle } from 'react-icons/fi';
 
 const BookAppointment = () => {
-  const { id } = useParams(); // Therapist ID from URL params
+  const { id } = useParams();
+  const navigate = useNavigate(); // Corrected location
   const [therapist, setTherapist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -16,14 +17,15 @@ const BookAppointment = () => {
     doctorName: '',
     location: '',
     disease: '',
-    appointmentDate: new Date(), // For date picker
-    appointmentTime: new Date() // For time picker
+    appointmentDate: new Date(),
+    appointmentTime: new Date()
   });
 
   useEffect(() => {
     const fetchTherapist = async () => {
+      console.log("fetchTherapist called"); 
       try {
-        const response = await fetch(`https://therapist-backend5.onrender.com/api/therapists/${id}`);
+        const response = await fetch(`http://localhost:5000/api/therapists/${id}`);
         if (!response.ok) throw new Error('Therapist not found');
         const data = await response.json();
         setTherapist(data);
@@ -41,7 +43,7 @@ const BookAppointment = () => {
     const fetchUserDetails = async () => {
       const token = localStorage.getItem('token');
       try {
-        const response = await fetch('https://therapist-backend5.onrender.com/api/users/me', {
+        const response = await fetch('http://localhost:5000/api/users/me', {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
@@ -64,7 +66,6 @@ const BookAppointment = () => {
   const handleDateChange = (date) => setFormData(prev => ({ ...prev, appointmentDate: date }));
   const handleTimeChange = (time) => setFormData(prev => ({ ...prev, appointmentTime: time }));
 
-  // Updated formatting functions
   const formatAppointmentDate = (date) => {
     return date.toLocaleString('en-US', {
       day: 'numeric',
@@ -83,18 +84,34 @@ const BookAppointment = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("handleSubmit called");
 
-    // Validate required fields
+    const appointmentData = {
+      service: 'Therapy Session',
+      date: formData.appointmentDate,
+      time: formData.appointmentTime,
+      therapistName: formData.doctorName,
+      location: formData.location,
+      disease: formData.disease,
+    };
+    console.log(appointmentData);
+    localStorage.setItem('appointmentData', JSON.stringify(appointmentData));
+
     if (!formData.disease.trim()) {
       alert('Please fill in the disease field.');
-      return; // Stop the submission if the disease field is empty
+      return;
     }
     if (!formData.location.trim()) {
       alert('Please fill in the location field.');
-      return; // Stop the submission if the location field is empty
+      return;
     }
 
     const element = document.getElementById('pdf-content');
+    if (!element) {
+      console.error("Element with ID 'pdf-content' not found.");
+      return;
+    }
+
     const pdfOptions = {
       margin: 1,
       filename: 'appointment.pdf',
@@ -103,16 +120,22 @@ const BookAppointment = () => {
       jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
 
-    // Generate PDF
-    html2pdf().from(element).set(pdfOptions).save().then(() => {
+    try {
+      console.log("Generating PDF...");
+      await html2pdf().from(element).set(pdfOptions).save();
+      console.log("PDF Generated Successfully");
+      alert('Appointment booked successfully!');
+      navigate('/tickets', { state: { appointmentData } });
       sendEmailWithPDF();
-    });
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+    }
   };
 
   const sendEmailWithPDF = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await fetch('https://therapist-backend5.onrender.com/api/appointments/book', {
+      const response = await fetch('http://localhost:5000/api/appointments/book', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -121,8 +144,8 @@ const BookAppointment = () => {
         body: JSON.stringify({
           ...formData,
           therapistId: id,
-          appointmentTime: formData.appointmentTime.toLocaleDateString(),
-          appointmentDate: formData.appointmentDate.toLocaleTimeString(),
+          appointmentTime: formData.appointmentTime.toISOString(),
+          appointmentDate: formData.appointmentDate.toLocaleDateString(),
           location: formData.location,
           disease: formData.disease,
         })
