@@ -61,6 +61,8 @@ const App = () => {
           element={<Profile setProfilePicture={setProfilePicture} />} 
         />
         <Route path="/tickets" element={<Tickets />} />
+       
+
         <Route path="/services" element={<Explore />} />
         <Route path="/theripest" element={<Theripest />} />
         <Route path="/book-appointment/:id" element={<BookAppointment />} />
