@@ -7,222 +7,117 @@ import { FiCalendar, FiClock, FiMapPin, FiAlertTriangle } from 'react-icons/fi';
 
 const BookAppointment = () => {
   const { id } = useParams();
-  const navigate = useNavigate(); // Corrected location
-  const [therapist, setTherapist] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [formData, setFormData] = useState({
-    userName: '',
-    userEmail: '',
-    doctorName: '',
-    location: '',
-    disease: '',
-    appointmentDate: new Date(),
-    appointmentTime: new Date()
-  });
+  const navigate = useNavigate();
 
+  const [therapist, setTherapist] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [user, setUser] = useState(null);
+
+  // ✅ Fetch therapist details
   useEffect(() => {
     const fetchTherapist = async () => {
-      console.log("fetchTherapist called"); 
       try {
-        const response = await fetch(`http://localhost:5000/api/therapists/${id}`);
         const response = await fetch(`https://therapist-backend5.onrender.com/api/therapists/${id}`);
         if (!response.ok) throw new Error('Therapist not found');
         const data = await response.json();
         setTherapist(data);
-@@ -43,7 +43,7 @@
+      } catch (err) {
+        console.error('Error fetching therapist:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTherapist();
+  }, [id]);
+
+  // ✅ Fetch user details using token
+  useEffect(() => {
     const fetchUserDetails = async () => {
-      const token = localStorage.getItem('token');
       try {
-        const response = await fetch('http://localhost:5000/api/users/me', {
+        const token = localStorage.getItem('token');
         const response = await fetch('https://therapist-backend5.onrender.com/api/users/me', {
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-@@ -135,188 +135,188 @@
-  const sendEmailWithPDF = async () => {
-    const token = localStorage.getItem('token');
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) throw new Error('Failed to fetch user');
+        const data = await response.json();
+        setUser(data);
+      } catch (err) {
+        console.error('Error fetching user details:', err);
+        setError(err.message);
+      }
+    };
+
+    fetchUserDetails();
+  }, []);
+
+  // ✅ Book appointment handler
+  const handleBookAppointment = async () => {
+    if (!selectedDate || !user || !therapist) {
+      alert('Please select a date and make sure user/therapist data is loaded.');
+      return;
+    }
+
     try {
-      const response = await fetch('http://localhost:5000/api/appointments/book', {
+      const token = localStorage.getItem('token');
+
       const response = await fetch('https://therapist-backend5.onrender.com/api/appointments/book', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...formData,
-          therapistId: id,
-          appointmentTime: formData.appointmentTime.toISOString(),
-          appointmentDate: formData.appointmentDate.toLocaleDateString(),
-          location: formData.location,
-          disease: formData.disease,
-        })
+          therapistId: therapist._id,
+          userId: user._id,
+          date: selectedDate,
+        }),
       });
+
       if (!response.ok) throw new Error('Failed to book appointment');
+
+      const data = await response.json();
       alert('Appointment booked successfully!');
+      navigate('/history'); // Redirect after success
     } catch (err) {
-      console.error('Error:', err.message);
+      console.error('Booking error:', err);
+      alert('Failed to book appointment');
     }
   };
 
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
+  // ✅ PDF download
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('appointment-details');
+    html2pdf().from(element).save('appointment-details.pdf');
+  };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div style={{ color: 'red' }}><FiAlertTriangle /> {error}</div>;
 
   return (
-    <div style={{
-      backgroundColor: '#121212',
-      color: '#fff',
-      padding: '2rem',
-      borderRadius: '10px',
-      width: '100%',
-      margin: 'auto',
-      boxShadow: '0 0px 16px rgba(0, 0, 0, 0.3)'
-    }}>
-      <h2>Book Appointment with {therapist.name}</h2>
-      <form onSubmit={handleSubmit} style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.5rem'
-      }}>
-        <p>Logged in as: {formData.userName} ({formData.userEmail})</p>
+    <div style={{ backgroundColor: '#f9f9f9', padding: '30px' }}>
+      <div id="appointment-details" style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 0 10px rgba(0,0,0,0.1)' }}>
+        <h2>Book Appointment with {therapist?.name}</h2>
+        <p><FiMapPin /> Location: {therapist?.location}</p>
+        <p><FiClock /> Available: {therapist?.availability}</p>
+        <p><FiCalendar /> Select Date:</p>
 
-        <label style={{ fontSize: '1.2rem', color: '#b3b3b3' }}>Location</label>
-        <div style={{ position: 'relative' }}>
-          <FiMapPin style={{
-            position: 'absolute',
-            left: '10px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            fontSize: '1.5rem',
-            color: '#b3b3b3'
-          }} />
-          <input
-            type="text"
-            value={formData.location}
-            onChange={e => setFormData({ ...formData, location: e.target.value })}
-            placeholder="Enter your location"
-            style={{
-              padding: '0.5rem 0.5rem 0.5rem 2.5rem',
-              fontSize: '1rem',
-              borderRadius: '5px',
-              border: '1px solid #555',
-              backgroundColor: '#222',
-              color: '#fff'
-            }}
-          />
+        <DatePicker
+          selected={selectedDate}
+          onChange={date => setSelectedDate(date)}
+          showTimeSelect
+          dateFormat="Pp"
+        />
+
+        <div style={{ marginTop: '20px' }}>
+          <button onClick={handleBookAppointment} style={{ marginRight: '10px', padding: '10px 20px' }}>Book</button>
+          <button onClick={handleDownloadPDF} style={{ padding: '10px 20px' }}>Download PDF</button>
         </div>
-
-        <label style={{ fontSize: '1.2rem', color: '#b3b3b3' }}>Disease</label>
-        <div style={{ position: 'relative' }}>
-          <FiAlertTriangle style={{
-            position: 'absolute',
-            left: '10px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            fontSize: '1.5rem',
-            color: '#b3b3b3'
-          }} />
-          <input
-            type="text"
-            value={formData.disease}
-            onChange={e => setFormData({ ...formData, disease: e.target.value })}
-            placeholder="Enter your disease"
-            style={{
-              padding: '0.5rem 0.5rem 0.5rem 2.5rem',
-              fontSize: '1rem',
-              borderRadius: '5px',
-              border: '1px solid #555',
-              backgroundColor: '#222',
-              color: '#fff'
-            }}
-          />
-        </div>
-
-        <label style={{ fontSize: '1.2rem', color: '#b3b3b3' }}>Appointment Date</label>
-        <div style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <FiCalendar style={{
-            position: 'absolute',
-            left: '10px',
-            fontSize: '1.5rem',
-            color: '#b3b3b3'
-          }} />
-          <DatePicker
-            selected={formData.appointmentDate}
-            onChange={handleDateChange}
-            dateFormat="MMMM d, yyyy"
-            style={{
-              width: '100%',
-              padding: '0.5rem 0.5rem 0.5rem 2rem',
-              borderRadius: '5px',
-              border: '1px solid #555',
-              backgroundColor: '#222',
-              color: '#fff'
-            }}
-          />
-        </div>
-
-        <label style={{ fontSize: '1.2rem', color: '#b3b3b3' }}>Appointment Time</label>
-        <div style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <FiClock style={{
-            position: 'absolute',
-            left: '10px',
-            fontSize: '1.5rem',
-            color: '#b3b3b3'
-          }} />
-          <DatePicker
-            selected={formData.appointmentTime}
-            onChange={handleTimeChange}
-            showTimeSelect
-            showTimeSelectOnly
-            timeIntervals={15}
-            timeCaption="Time"
-            dateFormat="h:mm aa"
-            style={{
-              width: '100%',
-              padding: '0.5rem 0.5rem 0.5rem 2rem',
-              borderRadius: '5px',
-              border: '1px solid #555',
-              backgroundColor: '#222',
-              color: '#fff'
-            }}
-          />
-        </div>
-
-        <button type="submit" style={{
-          backgroundColor: '#007bff',
-          color: '#fff',
-          padding: '0.75rem',
-          fontSize: '1.2rem',
-          borderRadius: '5px',
-          border: 'none',
-          cursor: 'pointer',
-          transition: 'background-color 0.3s ease',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.5rem'
-        }}>
-          <FiCalendar /> Book Appointment
-        </button>
-      </form>
-
-      <div id="pdf-content" style={{ display: 'none' }}>
-        <h1>Appointment Details</h1>
-        <p>Patient Name: {formData.userName}</p>
-        <p>Doctor Name: {formData.doctorName}</p>
-        <p>Date: {formatAppointmentDate(formData.appointmentDate)}</p>
-        <p>Time: {formatAppointmentTime(formData.appointmentTime)}</p>
-        <p>Location: {formData.location}</p>
-        <p>Disease: {formData.disease}</p>
       </div>
     </div>
   );
