@@ -11,8 +11,7 @@ const BookAppointment = () => {
   const [therapist, setTherapist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // --- CHANGE 1: Set the initial date to tomorrow ---
+
   const getTomorrow = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -25,17 +24,16 @@ const BookAppointment = () => {
     doctorName: '',
     location: '',
     disease: '',
-    appointmentDate: getTomorrow(), // Set initial state to tomorrow
+    appointmentDate: getTomorrow(),
     appointmentTime: new Date()
   });
 
-  // This will be used to disable today and past dates in the DatePicker
   const tomorrow = getTomorrow();
 
   useEffect(() => {
     const fetchTherapist = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/therapists/${id}`);
+        const response = await fetch(`https://therapist-backend5.onrender.com/api/therapists/${id}`);
         if (!response.ok) throw new Error('Therapist not found');
         const data = await response.json();
         setTherapist(data);
@@ -53,7 +51,7 @@ const BookAppointment = () => {
     const fetchUserDetails = async () => {
       const token = localStorage.getItem('token');
       try {
-        const response = await fetch('http://localhost:5000/api/users/me', {
+        const response = await fetch('https://therapist-backend5.onrender.com/api/users/me', {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
@@ -86,29 +84,27 @@ const BookAppointment = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("handleSubmit called");
 
-    // --- CHANGE 2: Add validation to check the date before submission ---
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to the start of the day
-    
+    today.setHours(0, 0, 0, 0);
     const selectedDate = new Date(formData.appointmentDate);
-    selectedDate.setHours(0, 0, 0, 0); // Normalize selected date
+    selectedDate.setHours(0, 0, 0, 0);
 
     if (selectedDate <= today) {
       alert("Appointments for today or past dates are not allowed. Please select a future date.");
-      return; // Stop the submission process
+      return;
     }
 
     if (!formData.disease.trim()) {
       alert('Please fill in the disease field.');
       return;
     }
+
     if (!formData.location.trim()) {
       alert('Please fill in the location field.');
       return;
     }
-    
+
     const appointmentData = {
       service: 'Therapy Session',
       date: formData.appointmentDate,
@@ -134,10 +130,8 @@ const BookAppointment = () => {
     };
 
     try {
-      console.log("Generating PDF...");
       await html2pdf().from(element).set(pdfOptions).save();
-      console.log("PDF Generated Successfully");
-      await sendEmailWithPDF(); // Wait for the backend call to complete
+      await sendEmailWithPDF();
       alert('Appointment booked and email sent successfully!');
       navigate('/tickets', { state: { appointmentData } });
     } catch (err) {
@@ -170,8 +164,7 @@ const BookAppointment = () => {
       }
     } catch (err) {
       console.error('Error in sendEmailWithPDF:', err.message);
-      // Re-throw the error to be caught by the handleSubmit's catch block
-      throw err; 
+      throw err;
     }
   };
 
@@ -190,24 +183,20 @@ const BookAppointment = () => {
     }}>
       <h2>Book Appointment with {therapist.name}</h2>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        {/* ... other form fields ... */}
         <p>Logged in as: {formData.userName} ({formData.userEmail})</p>
-        
-        {/* Location Input */}
+
         <label style={{ fontSize: '1.2rem', color: '#b3b3b3' }}>Location</label>
         <div style={{ position: 'relative' }}>
           <FiMapPin style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '1.5rem', color: '#b3b3b3' }} />
           <input type="text" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} placeholder="Enter your location" style={{ padding: '0.5rem 0.5rem 0.5rem 2.5rem', fontSize: '1rem', borderRadius: '5px', border: '1px solid #555', backgroundColor: '#222', color: '#fff', width: 'calc(100% - 3rem)' }} />
         </div>
 
-        {/* Disease Input */}
         <label style={{ fontSize: '1.2rem', color: '#b3b3b3' }}>Disease</label>
         <div style={{ position: 'relative' }}>
           <FiAlertTriangle style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '1.5rem', color: '#b3b3b3' }} />
           <input type="text" value={formData.disease} onChange={e => setFormData({ ...formData, disease: e.target.value })} placeholder="Enter your disease" style={{ padding: '0.5rem 0.5rem 0.5rem 2.5rem', fontSize: '1rem', borderRadius: '5px', border: '1px solid #555', backgroundColor: '#222', color: '#fff', width: 'calc(100% - 3rem)' }} />
         </div>
 
-        {/* Date Picker */}
         <label style={{ fontSize: '1.2rem', color: '#b3b3b3' }}>Appointment Date</label>
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <FiCalendar style={{ position: 'absolute', left: '10px', fontSize: '1.5rem', color: '#b3b3b3', zIndex: 1 }} />
@@ -215,13 +204,11 @@ const BookAppointment = () => {
             selected={formData.appointmentDate}
             onChange={handleDateChange}
             dateFormat="MMMM d, yyyy"
-            // --- CHANGE 3: Add minDate prop to disable past/current dates ---
             minDate={tomorrow}
-            className="custom-datepicker" // Use a class for custom styling
+            className="custom-datepicker"
           />
         </div>
 
-        {/* Time Picker */}
         <label style={{ fontSize: '1.2rem', color: '#b3b3b3' }}>Appointment Time</label>
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <FiClock style={{ position: 'absolute', left: '10px', fontSize: '1.5rem', color: '#b3b3b3', zIndex: 1 }} />
@@ -233,17 +220,15 @@ const BookAppointment = () => {
             timeIntervals={15}
             timeCaption="Time"
             dateFormat="h:mm aa"
-            className="custom-datepicker" // Use a class for custom styling
+            className="custom-datepicker"
           />
         </div>
 
-        {/* ... rest of the form ... */}
         <button type="submit" style={{ backgroundColor: '#007bff', color: '#fff', padding: '0.75rem', fontSize: '1.2rem', borderRadius: '5px', border: 'none', cursor: 'pointer', transition: 'background-color 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
           <FiCalendar /> Book Appointment
         </button>
       </form>
 
-      {/* PDF Content */}
       <div id="pdf-content" style={{ display: 'none' }}>
         <h1>Appointment Details</h1>
         <p>Patient Name: {formData.userName}</p>
@@ -253,8 +238,7 @@ const BookAppointment = () => {
         <p>Location: {formData.location}</p>
         <p>Disease: {formData.disease}</p>
       </div>
-      
-      {/* Add this CSS to your project's main CSS file or a style block */}
+
       <style>{`
         .custom-datepicker {
           width: 100%;
